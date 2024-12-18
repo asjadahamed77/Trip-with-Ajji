@@ -1,10 +1,27 @@
-import React, { useState } from 'react'
+import React, { useContext, useState } from 'react'
 import logo from '../assets/logo and icons/trip-with-ajji-logo.png'
 import profile from '../assets/logo and icons/profile.png'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { AppContext } from '../context/AppContext'
+import { toast } from "react-toastify";
+import axios from 'axios'
 const Navbar = () => {
-    const [token,setToken] = useState(false)
+
+    const {userData,setIsLoggedin,setUserData,backendUrl} = useContext(AppContext)
+
     const navigate = useNavigate()
+    const logout = async()=>{
+      try {
+        axios.defaults.withCredentials = true 
+        const {data} = await axios.post(backendUrl+'/api/auth/logout')
+        data.success && setIsLoggedin(false)
+        data.success && setUserData(false)
+        navigate('/')
+      } catch (error) {
+        console.log(error)
+        toast.error(error.message)
+      }
+    }
   return (
     <div className='flex justify-evenly items-center py-2 shadow-sm'>
         {/* Logo */}
@@ -17,11 +34,12 @@ const Navbar = () => {
         <li><NavLink to={'/explore'}>Explore</NavLink></li>
         <li><NavLink to={'/plan-your-trip'}>Plan Your Trip</NavLink></li>
         <li><NavLink to={'/contact-us'}>Contact Us</NavLink></li>
+        <p>{userData.name}</p>
       </ul>
       {/* Profile or Sign Up */}
       <div>
         {
-            token ? <img className='w-10 rounded-full object-cover cursor-pointer' src={profile} alt="" />
+            userData ? <button onClick={logout} className='bg-mainColor text-white text-xs px-4 py-2 rounded-full hover:opacity-80 duration-300'>Logout</button>
             : <button onClick={()=>{navigate('/sign-up');window.scrollTo(0,0)}} className='bg-mainColor text-white text-xs px-4 py-2 rounded-full hover:opacity-80 duration-300'>Sign Up</button>
         }
       </div>

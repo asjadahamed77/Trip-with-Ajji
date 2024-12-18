@@ -5,8 +5,8 @@ import { toast } from "react-toastify";
 import axios from 'axios'
 const SignUp = () => {
   const navigate = useNavigate()
-  const {backendUrl, setIsLoggedin} = useContext(AppContext)
-  const [state,setState] = useState("Sign Up")
+  const {backendUrl, setIsLoggedin,getUserData,sendVerficationOtp} = useContext(AppContext)
+  const [state,setState] = useState("Login")
   const [name,setName] = useState('')
   const [email,setEmail] = useState('')
   const [password,setPassword] = useState('')
@@ -19,7 +19,10 @@ const SignUp = () => {
         const {data} = await axios.post(backendUrl+'/api/auth/register',{name,email,password})
         if(data.success){
           setIsLoggedin(true)
-          toast.success("Account Created")
+          getUserData()
+          navigate('/email-verify')
+          sendVerficationOtp()
+    
         }else{
           toast.error(data.message)
         }
@@ -27,6 +30,7 @@ const SignUp = () => {
         const {data} = await axios.post(backendUrl+'/api/auth/login',{email,password})
         if(data.success){
           setIsLoggedin(true)
+          getUserData()
           navigate('/')
           toast.success("Login Successfully")
 
@@ -65,7 +69,9 @@ const SignUp = () => {
         <input onChange={e => setPassword(e.target.value)} value={password}  type="password" placeholder='Enter password' className='w-full p-2 bg-transparent mt-1 border rounded ' required  />
         </div>
         <button type='submit' className='w-full bg-white text-mainColor mt-2 py-2 rounded-lg hover:opacity-70'>{state === "Sign Up"?"Create Account":"Login to Account"}</button>
-        <p onClick={()=>navigate('/reset-password')} className='text-right text-sm italic cursor-pointer hover:underline '>forgot password?</p>
+        {
+          state === "Login" ? <p onClick={()=>navigate('/reset-password')} className='text-right text-sm italic cursor-pointer hover:underline '>forgot password?</p> : ""
+        }
         <hr />
         <p className='text-center text-sm'>{state === "Sign Up"? "Already have an account?":"Do not have an account?"} <span onClick={()=>{state==="Sign Up"?setState("Login"):setState("Sign Up")}}>{state === "Sign Up"?"Login Here":"Create Account"}</span> </p>
       </form>
