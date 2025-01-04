@@ -23,40 +23,40 @@ export const registerUser = async (req, res) => {
     try {
         const existingUser = await userModel.findOne({ email });
         if (existingUser) {
-            if (!existingUser.isAccountVerified) {
-                return res.json({ success: false, message: "Email verification pending. Check your email for OTP." });
-            }
-            return res.json({ success: false, message: "User already registered and verified." });
+            return res.json({ success: false, message: "User Already Registered" });
         }
 
-        // Create a temporary user record with verification pending
-        const otp = String(Math.floor(100000 + Math.random() * 900000));
-        const newUser = new userModel({
-            name,
-            email,
-            password: '', // Leave password empty until verification
-            verifyOtp: otp,
-            verifyOtpExpireAt: Date.now() + 5 * 60 * 1000, // OTP valid for 5 minutes
-            isAccountVerified: false,
-        });
-        await newUser.save();
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Send verification email
+        const user = new userModel({ name, email, password: hashedPassword });
+        
+        await user.save();
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '3d' });
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+            maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
+        });
+
+        // sending email
         const mailOptions = {
             from: process.env.SENDER_EMAIL,
             to: email,
-            subject: "ACCOUNT VERIFICATION OTP",
-            html: EMAIL_VERIFY_TEMPLATE.replace("{{otp}}", otp).replace("{{email}}", email),
-        };
-        await transporter.sendMail(mailOptions);
+            subject: "Welcome to OUR COMPANY",
+            text: `Welcome to uor company. Your account has been created with email id: ${email}.`
+        }
 
-        return res.json({ success: true, message: "Verification OTP sent to your email." });
+        await transporter.sendMail(mailOptions)
+
+        return res.json({ success: true });
     } catch (error) {
         res.json({ success: false, message: error.message });
         console.log(error);
     }
 };
-
 
 // Login for User
 export const loginUser = async (req, res) => {
@@ -145,41 +145,34 @@ export const sendVerifyOtp = async (req,res) => {
 }
 
 // verify email
-export const verifyEmail = async (req, res) => {
-    const { email, otp, password } = req.body;
-
-    if (!email || !otp || !password) {
-        return res.json({ success: false, message: "Email, OTP, and Password are required." });
-    }
-
-    if (password.length < 8) {
-        return res.json({ success: false, message: "Password must be at least 8 characters long." });
-    }
-
+export const verifyEmail = async (req,res) => {
+    const {userId, otp} = req.body
+        if(!userId, !otp){
+            return res.json({ success: false, message: "Missing Details" });
+        }
     try {
-        const user = await userModel.findOne({ email });
-        if (!user) {
+        const user = await userModel.findById(userId)
+        if(!user){
             return res.json({ success: false, message: "User not found." });
         }
-        if (user.verifyOtp !== otp || user.verifyOtpExpireAt < Date.now()) {
-            return res.json({ success: false, message: "Invalid or expired OTP." });
+        if(user.verifyOtp === "" || user.verifyOtp !== otp){
+            return res.json({ success: false, message: "Invalid Otp." });
+        }
+        if(user.verifyOtpExpireAt < Date.now()){
+            return res.json({ success: false, message: "Otp Expired." });
         }
 
-        // Update user details and mark as verified
-        const hashedPassword = await bcrypt.hash(password, 10);
-        user.password = hashedPassword;
-        user.isAccountVerified = true;
-        user.verifyOtp = '';
-        user.verifyOtpExpireAt = 0;
-        await user.save();
+        user.isAccountVerified = true
+        user.verifyOtp = ''
+        user.verifyOtpExpireAt = 0
 
-        return res.json({ success: true, message: "Email verified and account created successfully." });
+        await user.save()
+        return res.json({ success: true, message: "Email verified successfully." });
     } catch (error) {
         res.json({ success: false, message: error.message });
         console.log(error);
     }
-};
-
+}
 
 // check user is authenticated
 export const isAuthenticated = async (req,res) => {
@@ -242,7 +235,7 @@ export const resetPassword = async (req, res) => {
         if(user.resetOtp === "" || user.resetOtp !== otp){
             return res.json({ success: false, message: "Invalid Otp." });
         }
-        if(user.resetOtpExpireAt > Date.now()){
+        if(user.resetOtpExpireAt < Date.now()){
             return res.json({ success: false, message: "Otp Expired." });
         }
 
